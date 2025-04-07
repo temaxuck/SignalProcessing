@@ -14,8 +14,12 @@ using namespace std;
 //----------------------------------------------------------------------------------------
 int run_start = 308;
 int run_stop = run_start + 9;
-int event_start = 41;
-int event_stop = event_start + 0;    // выводит определненные события, сигнал
+int event_start = 0;
+int event_stop = event_start + 30;    // выводит определненные события, сигнал
+int run_slow_vs_fast = run_start;			// выводит форму сигнала данного run, для быстрых и медленных	
+int evt_slow_vs_fast_start = 0;
+int evt_slow_vs_fast_stop = 19;
+
 int threshold_slow = /*200*/ 40;
 int threshold_fast = 20;
 
@@ -30,7 +34,8 @@ int right_line_integrate = 32700; /*32700;*/
 int seperate_coeff = 1;				//коэффициент разделения площадей
 
 int lefts = 32100; /*32100;*/
-int rights = 32220; /*32400;*/
+int rights = 32500; /*32400; 32250*/
+int count_peak = 2; 		//количество пиков выше которого - альфа 
 
 bool colibration_mode = 0;
 bool alfa = 0;
@@ -142,6 +147,11 @@ struct data_bank_CORE
 
 };
 
+struct data_bank_PEAKS
+{
+	vector <int> peaks_number;	
+};
+
 // объекты структур например:  data_bank_HIST COLIB объект COLIB данных гистограмм для калибровок, SHORT_LIVE - объект для данных, которые стираем копируем для калибровок
 
 data_bank_HIST HIST;
@@ -162,6 +172,8 @@ data_bank_TIME DISSPERSION;
 data_bank_TIME ALPHA;
 
 data_bank_CORE CORELATION;
+
+data_bank_PEAKS NUMBER_PEAKS;
 
 //  вспомогательные функции для записи данных в структурный банк
 //----------------------------------------------------------------------------------------
@@ -1105,48 +1117,37 @@ void Plot_multy_signals(vector <vector<Point>> normalize_signal_multy, TCanvas* 
 	canvas->cd(3);
 	canvas->cd(3)->SetTickx();
 	canvas->cd(3)->SetTicky();
-
+	
 	int roof_signal = 2000;
 	vector <Point> events;
 
 	int start_events_runs = 0;
 	int end_events_runs = 0;
-	int number_of_signals = 500;
+	int number_of_signals = 20;
 
-	int base_kolor = 0;
-	int counter_for_color = 0;
-	int mix = 0;
-	double color_plus = 0;
-
-
+	
 	if (normalize_signal_multy.size() >= number_of_signals)
-		end_events_runs = number_of_signals;
+	end_events_runs = number_of_signals;
 	else
-		end_events_runs = normalize_signal_multy.size();
+	end_events_runs = normalize_signal_multy.size();
 
+	
 	for (int i = start_events_runs; i <= end_events_runs ; i++) /*_normalize_signal_multy.size()/points_per_event*/
 	{
 		events = normalize_signal_multy[i];
 		TGraph *signal = new TGraph(events.size(), extract_xs(events), extract_ys(events));
 
-		string number_events = to_string(end_events_runs-start_events_runs);
-		string title = "number_of_Signals: " + number_events;
-		signal->SetTitle(title.c_str());
-		signal->SetMarkerStyle(15);
-
-		// counter_for_color++;
-		// if (i == 1) base_kolor = 632;
-		// if (i == 6) base_kolor = 416;
-		// if (i == 4) base_kolor = 600;
-		// if (i == 3)	base_kolor = 800;
-		// if (i == 5)	base_kolor = 616;
-		// if (i == 2)	base_kolor = 900;
-		// signal->SetLineColor(base_kolor);
-
+		// string number_events = to_string(end_events_runs-start_events_runs + 1);
+		// string title = "number_of_Signals: " + number_events;
+		// signal->SetTitle(title.c_str());
+		// signal->SetMarkerStyle(15);
+		
+		
 		int color = TColor::GetColor(50 + (i * 50) % 200, 50 + (i * 100) % 200, 50 + (i * 150) % 200); // Генерация цвета
-		signal->SetLineColor(color);
-		signal->SetMarkerColor(color);
 
+		signal->SetLineColor(color);
+		signal->SetMarkerColor(color);	
+	
 		if (i == start_events_runs) signal->Draw();
 		if (i > start_events_runs) signal->Draw("SAME");
 
@@ -1155,18 +1156,15 @@ void Plot_multy_signals(vector <vector<Point>> normalize_signal_multy, TCanvas* 
 		signal->GetYaxis()->SetRangeUser(0, roof_signal); // Устанавливаем границы по оси Y
 		signal->GetXaxis()->SetRangeUser(31E3, 34E3); // Устанавливаем границы по оси Y
 
-		//if (counter_for_color == 3) counter_for_color = 0; mix += 1;
 	}
 
 	TLine *line_lefty = new TLine(left_line_integrate, 0, left_line_integrate, roof_signal);
 	line_lefty->SetLineColor(kRed);
-	line_lefty->Draw("same");
 	line_lefty->SetLineStyle(2);
 	line_lefty->SetLineWidth(2);
 
 	TLine *line_rigty = new TLine(right_line_integrate, 0, right_line_integrate, roof_signal);
 	line_rigty->SetLineColor(kRed);
-	line_rigty->Draw("same");
 	line_rigty->SetLineStyle(2);
 	line_rigty->SetLineWidth(2);
 
@@ -1545,20 +1543,115 @@ double get_disspersion(vector<Point> signal_peak, double area, int time_start, i
 // Основные сборочные функции, функции которые содержат подфункции
 //----------------------------------------------------------------------------------------
 
+
+void Plot_slow_vs_fast_signals( vector<vector<vector<Point>>> signal_multy, vector<vector<Events>> runs_events,  TCanvas* canvas)
+{	
+	int column = columns(evt_slow_vs_fast_stop-evt_slow_vs_fast_start+1);
+	int rows = ceil((float)(evt_slow_vs_fast_stop-evt_slow_vs_fast_start+1)/column);
+	
+	canvas->Divide(column,rows,0.01,0.01); //columns and rows
+	
+	for (int i = 0; i < signal_multy.size(); i++){
+		
+		canvas->cd(i+1);
+		
+		TGraph *signal = new TGraph(signal_multy[i][0].size(), extract_xs(signal_multy[i][0]), extract_ys(signal_multy[i][0]));
+		
+		ostringstream title;
+
+		title << "event: " << evt_slow_vs_fast_start + i;
+		signal->SetTitle(title.str().c_str());
+		
+		signal->SetLineColor(kBlue);
+		signal->SetMarkerColor(kBlue);
+		//signal->SetMarkerStyle(20);
+		//signal->SetMarkerSize(0.4);
+		signal->Draw();
+		
+		TGraph *signal1 = new TGraph(signal_multy[i][1].size(), extract_xs(signal_multy[i][1]), extract_ys(signal_multy[i][1]));
+
+		signal1->SetLineColor(kRed);
+		signal1->SetMarkerColor(kRed);
+		
+		int coefficient = 10.0;
+		
+		for (int i = 0; i < signal1->GetN(); ++i)
+		{
+			double xValue, yValue;
+			signal1->GetPoint(i, xValue, yValue); 
+			yValue *= coefficient; 
+			signal1->SetPoint(i, xValue, yValue); 
+		}
+		
+		signal1->Draw("SAME");
+		
+	}
+}
+
+void Bounded_slow_fast_signals(vector<vector<Events>> runs_events, int ch_slow, int ch_fast)
+{
+	vector<vector<Point>> colect_slow_fast_signal;
+	vector<vector<vector<Point>>> collect;
+	
+	TCanvas* slow_fast_sig_canvas = new TCanvas("slow_fast_sig_canvas", "slow_fast_sig_canvas", 1000, 1000);
+	
+	vector <Point> Signal;
+	vector<vector<Point>> partition_signal;
+	vector<vector<Point>> normalize_signal;
+	
+	for (int i = 0; i < runs_events.size(); i++){
+		
+		Signal = read_data_fast_tau(0, ch_slow, runs_events[i]);
+		partition_signal = partition_data(Signal, "SELECTION");	
+		normalize_signal = normalize_baseLine(partition_signal, "EVENT");
+		colect_slow_fast_signal.push_back(normalize_signal[0]);
+			
+		Signal = read_data_fast_tau(0, ch_fast, runs_events[i]);
+		partition_signal = partition_data(Signal, "SELECTION");
+		normalize_signal = normalize_baseLine(partition_signal, "EVENT");
+		colect_slow_fast_signal.push_back(normalize_signal[0]);
+		collect.push_back(colect_slow_fast_signal);	
+		colect_slow_fast_signal.clear();
+	
+	}
+	
+		Plot_slow_vs_fast_signals(collect, runs_events, slow_fast_sig_canvas);
+		
+	
+		//Plot_multy_signals(collect, slow_fast_sig_canvas, lefts, rights);			
+}
+
 void Other_PARAMETERS(int ch)		// Сборочная функция вызова функций отрисовки гистограмм калировок, сигналов наложения, временных гистограмм
 {
-	TCanvas *c4 = new TCanvas("OTHER PARAMETERS","OTHER PARAMETERS",1000,1000);
-	c4 ->Divide(3,2,0.01,0.01);
+	//TCanvas *c4 = new TCanvas("OTHER PARAMETERS","OTHER PARAMETERS",1000,1000);
+	//c4 ->Divide(3,2,0.01,0.01);
 
-	Plot_area_Amp(c4);
-	Plot_intagrate_Area(c4, seperate_coeff);
-	Multy_Signals(c4, ch);
+	//Plot_area_Amp(c4);
+	//Plot_intagrate_Area(c4, seperate_coeff);
+	//Multy_Signals(c4, ch);
 	Plot_time_signals();
-	//TCanvas* core_time_area = new TCanvas("core_time_area", "core_time_area", 1000, 10000);
+	
+	vector<vector<Events>> slow_vs_fast_sig;
+	Events run_event;
+	
+	for (int i = evt_slow_vs_fast_start; i <= evt_slow_vs_fast_stop; i++)
+	{
+		run_event.runs = run_slow_vs_fast;		
+		run_event.events = i;
+		
+		vector <Events> r_ev;
+		r_ev.push_back(run_event);
+		slow_vs_fast_sig.push_back(r_ev);
+	}
+	
+
+	Bounded_slow_fast_signals(slow_vs_fast_sig, 2, 5);
+	TCanvas* core_time_area = new TCanvas("core_time_area", "core_time_area", 1000, 10000);
 	//PLOT_Core_hist(CORELATION, CUT, core_time_area);
-	//PLOT_Core_hist(CORELATION, NO_CUT, core_time_area);
+	PLOT_Core_hist(CORELATION, NO_CUT, core_time_area);
 
 }
+
 
 
 void pre_finder_peaks(string HIST, int ch)
@@ -1706,24 +1799,54 @@ Events finder_alpha(vector<Point> normal_signal, int time_start, int time_end, E
 {
 	Events alfa_runs_events;
 	int peak_count = 0;
-
+	
 	for (int i = (time_start)/sec_per_point; i <= (time_end)/sec_per_point; i++)
 	{
 		if (normal_signal[i-1].y < threshold_fast && normal_signal[i].y > threshold_fast)
 			peak_count ++;
 	}
-
-	if (peak_count > 2)
+	NUMBER_PEAKS.peaks_number.push_back(peak_count);
+	
+	if (peak_count > count_peak)
 	alfa_runs_events = Run_event;
 	else
 	alfa_runs_events = {-1, -1};
 
+	
 	return alfa_runs_events;
 }
 
+	void number_peak_spectrum()
+	{
+		TCanvas* hist_peak_number = new TCanvas("hist_peak_number", "hist_peak_number", 1000, 1000);
+		TH1F* peak_spectrum = new TH1F("peak_spectrum", "peak_spectrum", 8, 0, 8);
+		
+		for (int i = 0; i < NUMBER_PEAKS.peaks_number.size(); i ++)
+		{
+			peak_spectrum->Fill(NUMBER_PEAKS.peaks_number[i]);
+		}
+		
+		for (int bin = 1; bin < peak_spectrum->GetNbinsX(); bin++)
+		{
+			double variation = peak_spectrum->GetBinContent(bin)/NUMBER_PEAKS.peaks_number.size();
+			double binContent = peak_spectrum->GetBinContent(bin);
+			double binCenter = peak_spectrum->GetBinCenter(bin);
+			variation = variation *100;
+			string var = to_string(variation) + " % "; 	
+			cout << bin << " varioation = " << var << endl;
+			TLatex latex;
+			latex.SetTextSize(0.03);
+			latex.DrawLatex(binCenter, binContent, (var).c_str());
+		}
+		
+		hist_peak_number->cd(1);
+		peak_spectrum->Draw("COLZ");
+			
+	}
+
 void search_alfa_fast_tau(vector <Events> peaks_in_time, data_bank_TIME TYPE, int ch)
 {
-	TCanvas* canvas_alfa = new TCanvas("canvas_alfa", "canvas_alfa", 1000, 1000);
+	//TCanvas* canvas_alfa = new TCanvas("canvas_alfa", "canvas_alfa", 1000, 1000);
 
 	vector <Point> signal;
 	vector <vector<Point>> partition_signal;
@@ -1747,7 +1870,7 @@ void search_alfa_fast_tau(vector <Events> peaks_in_time, data_bank_TIME TYPE, in
 	alfa_events = nonZero_event;
 
 
-	watch_single_EVENT("EVENT", ch, alfa_events, canvas_alfa);
+	//watch_single_EVENT("EVENT", ch, alfa_events, canvas_alfa);
 
 	ALPHA_EVENT.runs_events = alfa_events;
 }
@@ -1776,21 +1899,26 @@ void func_HIST_fast_tau(int ch)			// Сборочная функция для г
 
 //----------------------------------------------------------------------------------------
 
-int Test_5()
+int SignalProcessing()
 {
-	TCanvas* slow = new TCanvas("slow","slow",1000,1000); 	//  функция для вызова просмотра событий отобранных, второй параметр - канал
+	
+	//TCanvas* slow = new TCanvas("slow","slow",1000,1000); 	//  функция для вызова просмотра событий отобранных, второй параметр - канал
 
 	outFile = fopen(data_path.c_str(), "w");
 	fclose(outFile);
 
 	pre_finder_peaks("HIST", 2);
 
+	
 	search_alfa_fast_tau(PEAK_COUNT_EVENT.runs_events, ALPHA, 5);
 
-	watch_single_EVENT("EVENT", 2 , ALPHA_EVENT.runs_events, slow);
+	//watch_single_EVENT("EVENT", 2 , ALPHA_EVENT.runs_events, slow);
+	
 
+	
 	func_HIST("HIST", 2);				//  функция для вызова гистограмм медленных сигналов, второй параметр - канал
-
+	
+	
 	clear_vector_area();
 
     Other_PARAMETERS(2);				//  функция для вызова других параметров (калибровочные гистограммы, налоежнный сигнал ...), второй параметр - канал
@@ -1802,9 +1930,9 @@ int Test_5()
 
 	//watch_disperssion_peaks("EVENT", 2);
 
-//	func_EVENT("EVENT", 2); 			//  функция для вызова просмотра событий , второй параметр - канал
+	func_EVENT("EVENT", 2); 			//  функция для вызова просмотра событий , второй параметр - канал
 
-	func_HIST_fast_tau(5);				//  функция для вызова гистограмм быстрых сигналов , второй параметр - канал
+//	func_HIST_fast_tau(5);				//  функция для вызова гистограмм быстрых сигналов , второй параметр - канал
 
 
 	 return 0;
