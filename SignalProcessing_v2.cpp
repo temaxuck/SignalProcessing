@@ -80,16 +80,16 @@ vector<Event> split_data_to_events(Channel chan, vector<data_t> data) {
 
     vector<Event> events(EVENTS_PER_RUN);
     for (size_t i = 0; i < EVENTS_PER_RUN; i++) {
-      Event event(POINTS_PER_EVENT);
-      for (size_t j = 0; j < POINTS_PER_EVENT; j++) {
-        event[j] = Point {
-          .x = (int)j,
-          .y = coeff*data[i * POINTS_PER_EVENT + j],
-        };
-      }
-      events[i] = event;
+        Event event(POINTS_PER_EVENT);
+        for (size_t j = 0; j < POINTS_PER_EVENT; j++) {
+            event[j] = Point {
+                .x = (int)j,
+                .y = coeff*data[i * POINTS_PER_EVENT + j],
+            };
+        }
+        events[i] = event;
     }
-    
+
     return events;
 }
 
