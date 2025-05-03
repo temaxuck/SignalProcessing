@@ -9,17 +9,18 @@
 //----------------------//
 using namespace std;
 // ---------------------//
+//som
 
 //командный пункт
 //----------------------------------------------------------------------------------------
-int ch_fast = 14;					// номер каннала 
+int ch_fast = 14;					// номер каннала
 int ch_slow = 1;
 
 int run_start = 287;
 int run_stop = run_start + 30;
 int event_start = 20;
 int event_stop = event_start + 20;    // выводит определненные события, сигнал
-int run_slow_vs_fast = run_start;			// выводит форму сигнала данного run, для быстрых и медленных	
+int run_slow_vs_fast = run_start;			// выводит форму сигнала данного run, для быстрых и медленных
 int evt_slow_vs_fast_start = 60;
 int evt_slow_vs_fast_stop = 80 -1;
 
@@ -38,7 +39,7 @@ int seperate_coeff = 1;				//коэффициент разделения пло�
 
 int lefts = 32160; /*32110;*/
 int rights = 32340; /*32200;*//*32400; 32250*/
-int count_peak = 2; 		//количество пиков выше которого - альфа 
+int count_peak = 2; 		//количество пиков выше которого - альфа
 
 bool colibration_mode = 0;
 bool alfa = 0;
@@ -64,8 +65,8 @@ struct Channel
 {
 	int fast;
 	int slow;
-	
-}; 
+
+};
 
 Channel ch;
 Channel TRIG;
@@ -102,7 +103,7 @@ struct data_bank_HIST
 	vector <double>	total_area;
 	vector <double> integrated_area;//#vlad gated_area area_in_gate
 	//#vlad base_line_y_max
-	
+
 	//#vlad на один пик
 	vector <double> area;
 	vector <double> x_max;
@@ -172,7 +173,7 @@ struct data_bank_CORE
 
 struct data_bank_PEAKS
 {
-	vector <int> peaks_number;	
+	vector <int> peaks_number;
 };
 
 // объекты структур например:  data_bank_HIST COLIB объект COLIB данных гистограмм для калибровок, SHORT_LIVE - объект для данных, которые стираем копируем для калибровок
@@ -618,16 +619,16 @@ vector<vector<Point>> partition_data(vector <Point> Signal, string choose_mode)	
 
 //#vlad убрать
 bool check_floating_baseLine(const vector<Point>& checked_normal_baseline, const int& period)
-{	
+{
 
 	int trigger_level = TRIG.slow;
-	
+
 	for (int point = 0; point < period; point++)
 	{
 		if (abs(checked_normal_baseline[point].y) > trigger_level)
-		{	
+		{
 			return true;
-		}	
+		}
 	}
 	return false;
 }
@@ -663,23 +664,23 @@ vector <vector<Point>> normalize_baseLine(vector <vector<Point>> Signal, string 
 		{
 			normalize_signal[event][points].y -= base_line_avr;
 		}
-		
+
 		// if (choose_main_read != NULL)
 		// {
-			// if (check_floating_baseLine(normalize_signal[event], period)) continue;			
+			// if (check_floating_baseLine(normalize_signal[event], period)) continue;
 		// }
-		
+
 		//#vlad добавить СЮДА функцию вычисления max y
-		
+
 		if (choose_mode == "HIST")
 		{
-			//#vlad убрать 
+			//#vlad убрать
 			get_base_line_data(base_line_avr, base_line_sigma);
-			
+
 			//#vlad добавть ... HIST.base_line_avr.push_back(base_line_avr);
 		}
 	}
-	
+
 	return normalize_signal;
 }
 
@@ -826,20 +827,20 @@ void Find_peaks(vector <vector<Point>> norm_signal, string choose_mode, int run,
 
 					get_tstart_tend_tmax(p_min*sec_per_point, p_max*sec_per_point, max.x*sec_per_point, area, WITH_PIEDISTAL);
 
-					
-					
+
+
 
 						if(alfa_ID(run, event, ALPHA_EVENT.runs_events))
 						{
 							get_tstart_tend_tmax(p_min, p_max, max.x, area, DISSPERSION);
 							get_tstart_tend_tmax(p_min*sec_per_point, p_max*sec_per_point, max.x*sec_per_point, area, CUT);
 							get_runs_events(run, event, MULTY_EVENT);
-							
+
 							if( area > 100E3)
 							get_runs_events(run, event, SINGLE_EVENT);
 						}
-						else{counter_alpha ++;} 
-						
+						else{counter_alpha ++;}
+
 				}
 
 
@@ -1169,7 +1170,7 @@ void Plot_multy_signals(vector <vector<Point>> normalize_signal_multy, TCanvas* 
 	canvas->cd(3);
 	canvas->cd(3)->SetTickx();
 	canvas->cd(3)->SetTicky();
-	
+
 	int roof_signal = 2000;
 	vector <Point> events;
 
@@ -1177,13 +1178,13 @@ void Plot_multy_signals(vector <vector<Point>> normalize_signal_multy, TCanvas* 
 	int end_events_runs = 0;
 	int number_of_signals = 20;
 
-	
+
 	if (normalize_signal_multy.size() >= number_of_signals)
 	end_events_runs = number_of_signals;
 	else
 	end_events_runs = normalize_signal_multy.size();
 
-	
+
 	for (int i = start_events_runs; i <= end_events_runs ; i++) /*_normalize_signal_multy.size()/points_per_event*/
 	{
 		events = normalize_signal_multy[i];
@@ -1193,13 +1194,13 @@ void Plot_multy_signals(vector <vector<Point>> normalize_signal_multy, TCanvas* 
 		// string title = "number_of_Signals: " + number_events;
 		// signal->SetTitle(title.c_str());
 		// signal->SetMarkerStyle(15);
-		
-		
+
+
 		int color = TColor::GetColor(50 + (i * 50) % 200, 50 + (i * 100) % 200, 50 + (i * 150) % 200); // Генерация цвета
 
 		signal->SetLineColor(color);
-		signal->SetMarkerColor(color);	
-	
+		signal->SetMarkerColor(color);
+
 		if (i == start_events_runs) signal->Draw();
 		if (i > start_events_runs) signal->Draw("SAME");
 
@@ -1420,7 +1421,7 @@ void Find_G_for_histogram(vector<TH1F*> cascade_hist) // функция вычи
 	{
 		S += cascade_hist[5]->GetBinContent(i) * cascade_hist[5]->GetBinCenter(i);
 	}
-	
+
 	entries = cascade_hist[5]->GetEntries();				// число зарегестрированных событий, то есть события вне пьедестала
 	Events = (run_stop - run_start + 1)*events_per_file;	// число всех событий
 	S = S/Events;
@@ -1598,81 +1599,81 @@ double get_disspersion(vector<Point> signal_peak, double area, int time_start, i
 
 
 void Plot_slow_vs_fast_signals(vector<vector<vector<Point>>> signal_multy, TCanvas* canvas)
-{	
+{
 	int column = columns(evt_slow_vs_fast_stop-evt_slow_vs_fast_start+1);
 	int rows = ceil((float)(evt_slow_vs_fast_stop-evt_slow_vs_fast_start+1)/column);
-	
+
 	canvas->Divide(column,rows,0.01,0.01); //columns and rows
 	cout << "yes2" << endl;
-	
+
 	for (int i = 0; i < column*rows/*signal_multy.size()*/; i++){
-		
+
 		canvas->cd(i+1);
-		
+
 		TGraph *signal = new TGraph(signal_multy[i][0].size(), extract_xs(signal_multy[i][0]), extract_ys(signal_multy[i][0]));
-		
+
 		ostringstream title;
 
 		title << "event: " << evt_slow_vs_fast_start + i;
 		signal->SetTitle(title.str().c_str());
-		
+
 		signal->SetLineColor(kBlue);
 		signal->SetMarkerColor(kBlue);
 		//signal->SetMarkerStyle(20);
 		//signal->SetMarkerSize(0.4);
 		signal->Draw();
-		
+
 		TGraph *signal1 = new TGraph(signal_multy[i][1].size(), extract_xs(signal_multy[i][1]), extract_ys(signal_multy[i][1]));
 
 		signal1->SetLineColor(kRed);
 		signal1->SetMarkerColor(kRed);
-		
+
 		int coefficient = 10.0;
-		
+
 		for (int i = 0; i < signal1->GetN(); ++i)
 		{
 			double xValue, yValue;
-			signal1->GetPoint(i, xValue, yValue); 
-			yValue *= coefficient; 
-			signal1->SetPoint(i, xValue, yValue); 
+			signal1->GetPoint(i, xValue, yValue);
+			yValue *= coefficient;
+			signal1->SetPoint(i, xValue, yValue);
 		}
-		
+
 		signal1->Draw("SAME");
-		
+
 	}
-	
-	
+
+
 }
 
 void Bounded_slow_fast_signals(vector<vector<Events>> runs_events, int ch_slow, int ch_fast)
 {
 	vector<vector<Point>> colect_slow_fast_signal;
 	vector<vector<vector<Point>>> collect;
-	
+
 	TCanvas* slow_fast_sig_canvas = new TCanvas("slow_fast_sig_canvas", "slow_fast_sig_canvas", 1000, 1000);
-	
+
 	vector <Point> Signal;
 	vector<vector<Point>> partition_signal;
 	vector<vector<Point>> normalize_signal;
-	
+
 	for (int i = 0; i < runs_events.size(); i++){
-		
+
 		Signal = read_data_fast_tau(0, ch_slow, runs_events[i]);
-		partition_signal = partition_data(Signal, "SELECTION");	
+		partition_signal = partition_data(Signal, "SELECTION");
 		normalize_signal = normalize_baseLine(partition_signal, "EVENT", period_stBaseLine);
 		colect_slow_fast_signal.push_back(normalize_signal[0]);
-			
+
 		Signal = read_data_fast_tau(0, ch_fast, runs_events[i]);
 		partition_signal = partition_data(Signal, "SELECTION");
 		normalize_signal = normalize_baseLine(partition_signal, "EVENT", period_stBaseLine);
 		colect_slow_fast_signal.push_back(normalize_signal[0]);
-		collect.push_back(colect_slow_fast_signal);	
+		collect.push_back(colect_slow_fast_signal);
 		colect_slow_fast_signal.clear();
-	
+
 	}
-	
+
 		Plot_slow_vs_fast_signals(collect, slow_fast_sig_canvas);
-				
+
 }
 
 void Other_PARAMETERS(int ch_slow, int ch_fast)		// Сборочная функция вызова функций отрисовки гистограмм калировок, сигналов наложения, временных гистограмм
@@ -1684,30 +1685,30 @@ void Other_PARAMETERS(int ch_slow, int ch_fast)		// Сборочная функ�
 	//Plot_intagrate_Area(c4, seperate_coeff);
 	//Multy_Signals(c4, ch);
 	Plot_time_signals();
-	
+
 	vector<vector<Events>> slow_vs_fast_sig;
 	Events run_event;
-	
+
 	// for (int i = evt_slow_vs_fast_start; i <= evt_slow_vs_fast_stop; i++)
 	// {
-		// run_event.runs = run_slow_vs_fast;		
+		// run_event.runs = run_slow_vs_fast;
 		// run_event.events = i;
-		
+
 		// vector <Events> r_ev;
 		// r_ev.push_back(run_event);
 		// slow_vs_fast_sig.push_back(r_ev);
 	// }
-	
+
 	for (int i = 0; i < SINGLE_EVENT.runs_events.size(); i++)
 	{
 		run_event.runs = SINGLE_EVENT.runs_events[i].runs;
 		run_event.events = SINGLE_EVENT.runs_events[i].events;
-		
+
 		vector <Events> r_ev;
 		r_ev.push_back(run_event);
 		slow_vs_fast_sig.push_back(r_ev);
 	}
-	
+
 	Bounded_slow_fast_signals(slow_vs_fast_sig, ch_slow, ch_fast);
 	TCanvas* core_time_area = new TCanvas("core_time_area", "core_time_area", 1000, 10000);
 	//PLOT_Core_hist(CORELATION, CUT, core_time_area);
@@ -1728,7 +1729,7 @@ void pre_finder_peaks(string HIST, int ch)
 	{
 		Signal = read_data(ch, run, "HIST", "preHIST");
 		partition_signal = partition_data(Signal, "HIST");
-		normalize_signal = normalize_baseLine(partition_signal, "noHIST", period_stBaseLine);		
+		normalize_signal = normalize_baseLine(partition_signal, "noHIST", period_stBaseLine);
 		Find_peaks(normalize_signal, "preHIST", run, "noSLOW", threshold_slow);
 	}
 }
@@ -1846,7 +1847,7 @@ void watch_disperssion_peaks(string EVENT, int ch)			// Сборочная фу�
 	{
 		Signal = read_data_fast_tau(i, ch, SINGLE_EVENT.runs_events);
 		partition_signal = partition_data(Signal, "SELECTION");
-		normalize_signal = normalize_baseLine(partition_signal, "EVENT", period_stBaseLine); 
+		normalize_signal = normalize_baseLine(partition_signal, "EVENT", period_stBaseLine);
 		disspersion_peak.push_back(get_disspersion(normalize_signal[0], DISSPERSION.area_in_rigeon[i], DISSPERSION.t_start[i], DISSPERSION.t_end[i]));
 		max_peak.push_back(DISSPERSION.max[i]*sec_per_point);
 		area_peak.push_back(DISSPERSION.area_in_rigeon[i]);
@@ -1869,13 +1870,13 @@ Events finder_alpha(vector<Point> normal_signal, int time_start, int time_end, E
 			peak_count ++;
 	}
 	NUMBER_PEAKS.peaks_number.push_back(peak_count);
-	
+
 	if (peak_count > count_peak)
 	alfa_runs_events = Run_event;
 	else
 	alfa_runs_events = {-1, -1};
 
-	
+
 	return alfa_runs_events;
 }
 
@@ -1883,28 +1884,28 @@ void number_peak_spectrum()
 {
 	TCanvas* hist_peak_number = new TCanvas("hist_peak_number", "hist_peak_number", 1000, 1000);
 	TH1F* peak_spectrum = new TH1F("peak_spectrum", "peak_spectrum", 20, 0, 20);
-	
+
 	for (int i = 0; i < NUMBER_PEAKS.peaks_number.size(); i ++)
 	{
 		peak_spectrum->Fill(NUMBER_PEAKS.peaks_number[i]);
 	}
-	
+
 	for (int bin = 1; bin < peak_spectrum->GetNbinsX(); bin++)
 	{
 		double variation = peak_spectrum->GetBinContent(bin)/NUMBER_PEAKS.peaks_number.size();
 		double binContent = peak_spectrum->GetBinContent(bin);
 		double binCenter = peak_spectrum->GetBinCenter(bin);
 		variation = variation *100;
-		string var = to_string(variation) + " % "; 	
+		string var = to_string(variation) + " % ";
 		cout << bin << " varioation = " << var << endl;
 		TLatex latex;
 		latex.SetTextSize(0.03);
 		latex.DrawLatex(binCenter, binContent, (var).c_str());
 	}
-	
+
 	hist_peak_number->cd(1);
 	peak_spectrum->Draw("COLZ");
-		
+
 }
 
 void search_alfa_fast_tau(vector <Events> peaks_in_time, data_bank_TIME TYPE, int ch, int ch_watch)
@@ -1961,12 +1962,12 @@ void func_HIST_fast_tau(int ch)			// Сборочная функция для г
 }
 
 
-void Calibr_func(int slow, int fast, bool alfa_out) 
+void Calibr_func(int slow, int fast, bool alfa_out)
 {
 	pre_finder_peaks("HIST", slow);
 	search_alfa_fast_tau(PEAK_COUNT_EVENT.runs_events, ALPHA, fast, slow);
-	number_peak_spectrum();	
-	func_HIST("HIST", slow, alfa_out);				
+	number_peak_spectrum();
+	func_HIST("HIST", slow, alfa_out);
 	Other_PARAMETERS(slow, fast);
 	clear_vector_area();
 	func_EVENT("EVENT", fast);
@@ -1975,8 +1976,8 @@ void Calibr_func(int slow, int fast, bool alfa_out)
 void Tau_func(int slow, int fast, bool alfa_out)
 {
 	func_HIST("HIST", slow, alfa_out);
-	clear_vector_area();	
-	func_HIST_fast_tau(fast);	
+	clear_vector_area();
+	func_HIST_fast_tau(fast);
 }
 
 
@@ -1984,13 +1985,13 @@ void calibration_or_tau(int slow, int fast)
 {
 	string temp_parametr;
 	bool alfa_out = NULL;
-	
+
 	cout << endl << "calib / tau ?" << endl << "enter 'c' or 't' " << endl;
 	cin >> temp_parametr;
 	cout << "mode = " << temp_parametr << endl;
-	
+
 	if (temp_parametr == "c") alfa_out = 1;
-	
+
 	if (temp_parametr == "c") Calibr_func(slow, fast, alfa_out);
 	if (temp_parametr == "t") Tau_func(slow, fast, alfa_out);
 }
@@ -2001,15 +2002,15 @@ int SignalProcessing()
 {
 	ch.slow = ch_slow;
 	ch.fast = ch_fast;
-	
+
 	outFile = fopen(data_path.c_str(), "w");
 	fclose(outFile);
-	
+
 	calibration_or_tau(ch.slow, ch.fast);
-	
-	
+
+
 	//TCanvas* single_event = new TCanvas("single_event","single_event",1000,1000); 	//  функция для вызова просмотра событий отобранных, второй параметр - канал
-	
+
 	//watch_single_EVENT("EVENT", ch.slow , SINGLE_EVENT.runs_events, single_event);
 
 	//watch_single_EVENT("EVENT", 2 , SINGLE_EVENT.runs_events, single_event);		//  функция для вызова просмотра событий отобранных, второй параметр - канал
