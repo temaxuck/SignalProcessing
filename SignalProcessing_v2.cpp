@@ -70,6 +70,7 @@ typedef struct {
 
 // two trees for each channel which fill with struct Event_data
 // Event_data include struct Peak_data as vector of peaks
+/*
 struct Peak_data{
 	double_t area;
 	Point max;
@@ -100,7 +101,7 @@ void creat_tree(){
 	file->Write();
     file->Close();
 }
-
+*/
 vector<data_t> read_data(fs::path filepath, size_t n_obj) {
     vector<data_t> data(n_obj);
 
