@@ -13,12 +13,10 @@
 #include <TFile.h>
 #include <TTree.h>
 
-
 using namespace std;
 namespace fs = std::filesystem; // Just an alias
 
-const size_t DATA_OBJECT_SIZE = 2; // number of bytes per data object
-typedef int16_t data_t; // sizeof(DATA_OBJECT_TYPE) == DATA_OBJECT_SIZE
+typedef int16_t data_t; // NOTE: the binary data must be encoded into this type!
 
 const int RUN_START = 1;
 const int RUN_STOP = 1;
@@ -34,37 +32,44 @@ typedef enum {
     CHANNEL_FAST,
 } CHANNEL_TYPE;
 
-typedef enum {
-	THRESH_SLOW = 40,
-	THRESH_FAST = 20,
-}THRESHOLD_TYPE;
+// TODO: If this is just a collection of constants we can simply make make like this:
+//       ```
+//       const double THRESHOLD_SLOW = 40;
+//       const double THRESHOLD_FAST = 20;
+//       ```
+//       Or if we intend to use it as a type, then, we have to change the type of a
+//       `Channel.threshold` variable to `THRESHOLD_TYPE`
+typedef enum { 
+    THRESH_SLOW = 40,
+    THRESH_FAST = 20,
+} THRESHOLD_TYPE; 
 
 typedef struct {
     CHANNEL_TYPE t;
     int n;
-	double threshhold;
+    double threshold; // See comment above `THRESHOLD_TYPE` enum
 } Channel;
 
 typedef struct {
     int x;
-    int y;
+    data_t y;
 } Point;
 
 typedef vector<Point> Event;
 
-struct Events {
-    int event;
+struct RunEvent_K {
     int run;
+    int event;
 
-    bool operator<(const Events& other) const {
-        return tie(run, event) < tie(other.run, other.event);
+    bool operator<(const RunEvent_K& other) const {
+        if (run == other.run) return event < other.event;
+        return run < other.run;
     }
-
 };
 
 typedef struct {
-	int left;
-	int right;
+    int left;
+    int right;
 } Borders;
 
 
@@ -102,6 +107,7 @@ void creat_tree(){
     file->Close();
 }
 */
+
 vector<data_t> read_data(fs::path filepath, size_t n_obj) {
     vector<data_t> data(n_obj);
 
@@ -110,7 +116,7 @@ vector<data_t> read_data(fs::path filepath, size_t n_obj) {
         cout << "Error opening file: " << filepath << endl;
         exit(EXIT_FAILURE);
     }
-    fread(data.data(), DATA_OBJECT_SIZE, n_obj, f);
+    fread(data.data(), sizeof(data_t), n_obj, f);
     fclose(f);
 
     return data;
@@ -138,7 +144,7 @@ vector<Event> split_data_to_events(Channel chan, vector<data_t> data) {
         for (size_t j = 0; j < POINTS_PER_EVENT; j++) {
             event[j] = Point {
                 .x = (int)j,
-                .y = coeff*data[i * POINTS_PER_EVENT + j],
+                .y = static_cast<data_t>(coeff*data[i * POINTS_PER_EVENT + j]),
             };
         }
         events[i] = event;
@@ -147,95 +153,100 @@ vector<Event> split_data_to_events(Channel chan, vector<data_t> data) {
     return events;
 }
 
-void find_peaks(Channel chan, Event data, Borders left_right = {}){
-	Borders peak_borders;
-	Borders timezone_to_fp;
-	double_t area, total_area;
-	int temp_left, temp_right;
-	int depth = 5;
+void find_peaks(Channel chan, Event data, Borders left_right = {}) {
+    Borders peak_borders;
+    Borders timezone_to_fp;
+    double_t area, total_area;
+    int temp_left, temp_right;
+    int depth = 5;
 
-	Event event = data;
-	if (left_right.left != NULL ) {timezone_to_fp.left = 1; timezone_to_fp.right = data.size();}
-	else {timezone_to_fp.left = left_right.left; timezone_to_fp.right = left_right.right;}
-	if (timezone_to_fp.left < 0 || timezone_to_fp.right >event.size()) {
-		cout << "out of limits" << endl;
-		timezone_to_fp.left = 1; timezone_to_fp.right = event.size();
-	}
-	for (size_t i = timezone_to_fp.left + 1; i < timezone_to_fp.right; i++){
-		Point max = {0, 0};
-		if(event[i-1].y < chan.threshhold && event[i].y > chan.threshhold){
-			peak_borders.left = i;
-			while (event[i].y > chan.threshhold/depth && peak_borders.left > 0) peak_borders.left--;
-			peak_borders.right = i;
-			while (event[i].y > chan.threshhold/depth && peak_borders.right < POINTS_PER_EVENT) peak_borders.right++;
+    Event event = data;
+    if (left_right.left != NULL ) {
+        timezone_to_fp.left = 1;
+        timezone_to_fp.right = data.size();
+    }
+    else {
+        timezone_to_fp.left = left_right.left;
+        timezone_to_fp.right = left_right.right;
+    }
+    if (timezone_to_fp.left < 0 || timezone_to_fp.right >event.size()) {
+        cout << "out of limits" << endl;
+        timezone_to_fp.left = 1;
+        timezone_to_fp.right = event.size();
+    }
+    for (size_t i = timezone_to_fp.left + 1; i < timezone_to_fp.right; i++) {
+        Point max = {0, 0};
+        if(event[i-1].y < chan.threshold && event[i].y > chan.threshold) {
+            peak_borders.left = i;
+            while (event[i].y > chan.threshold/depth && peak_borders.left > 0) peak_borders.left--;
+            peak_borders.right = i;
+            while (event[i].y > chan.threshold/depth && peak_borders.right < POINTS_PER_EVENT) peak_borders.right++;
 
-			if (peak_borders.left != temp_left && peak_borders.right != temp_right){
-				for (size_t i = peak_borders.left; i <= peak_borders.right; i++){
-					area += SEC_PER_POINT*(event[i-1].y + event[i].y)/2;
-					if (max.y < event[i].y)
-						max = event[i];
-				}
-			}
-			else area = 0;
-			total_area += area;
-		}
-	}
-	temp_left  = peak_borders.left;
-	temp_right = peak_borders.right;
+            if (peak_borders.left != temp_left && peak_borders.right != temp_right) {
+                for (size_t i = peak_borders.left; i <= peak_borders.right; i++) {
+                    area += SEC_PER_POINT*(event[i-1].y + event[i].y)/2;
+                    if (max.y < event[i].y)
+                        max = event[i];
+                }
+            }
+            else area = 0;
+            total_area += area;
+        }
+    }
+    temp_left  = peak_borders.left;
+    temp_right = peak_borders.right;
 
-	//TODO obtain data to tree of peaks {area, max, peak_borders} mb its leaves, obtain data to tree of event {total area}
+    //TODO obtain data to tree of peaks {area, max, peak_borders} mb its leaves, obtain data to tree of event {total area}
 }
 
-double_t check_start_fluct(int run, const vector<Event> data){
-	int startline = PERIOD/SEC_PER_POINT;
-	double_t maxy_start = 0;
-	for (size_t i = 0; i < startline; i++){
-		if ( maxy_start > data[run][i].y)
-		maxy_start = data[run][i].y;
-	}
-	return maxy_start;
+double_t check_start_fluct(int run, const vector<Event> data) {
+    int startline = PERIOD/SEC_PER_POINT;
+    double_t maxy_start = 0;
+    for (size_t i = 0; i < startline; i++) {
+        if ( maxy_start > data[run][i].y)
+            maxy_start = data[run][i].y;
+    }
+    return maxy_start;
 }
 
-vector<Event> normalize_baseline(Channel chan, vector<Event> data){
-	double_t baseline_avr, baseline_sigma;
-	int  sum, sum_sigma;
-	int start_line = PERIOD/SEC_PER_POINT;
-	double_t start_fluct;
-	Borders timezone_to_fp = {.left = 0, .right = start_line};
-	vector <Event> normal_signal = data;
-	for (size_t i = 0; i < data.size(); i++){
-		sum = 0; sum_sigma = 0;
-		// TODO obtain start_fluct to struct event
-		start_fluct = check_start_fluct(i, normal_signal);
-		for (size_t j = 0; j < start_line; j++){
-			sum += normal_signal[i][j].y;
-		}
-		baseline_avr = sum/start_line;
+vector<Event> normalize_baseline(Channel chan, vector<Event> data) {
+    double_t baseline_avr, baseline_sigma;
+    int  sum, sum_sigma;
+    int start_line = PERIOD/SEC_PER_POINT;
+    double_t start_fluct;
+    Borders timezone_to_fp = {.left = 0, .right = start_line};
+    vector <Event> normal_signal = data;
+    for (size_t i = 0; i < data.size(); i++) {
+        sum = 0;
+        sum_sigma = 0;
+        // TODO obtain start_fluct to struct event
+        start_fluct = check_start_fluct(i, normal_signal);
+        for (size_t j = 0; j < start_line; j++) {
+            sum += normal_signal[i][j].y;
+        }
+        baseline_avr = sum/start_line;
 
-		for (size_t j = 0; j < POINTS_PER_EVENT; j++){
-			normal_signal[i][j].y -= baseline_avr;
-		}
-		for (size_t j = 0; j < start_line; j++){
-			sum_sigma += pow((normal_signal[i][j].y - baseline_avr), 2);
-		}
-		baseline_sigma = sqrt(sum_sigma/start_line);
-		//TODO obtain data of events into tree of event: baseline_sigma, baseline_avr,
-	}
-	return normal_signal;
+        for (size_t j = 0; j < POINTS_PER_EVENT; j++) {
+            normal_signal[i][j].y -= baseline_avr;
+        }
+        for (size_t j = 0; j < start_line; j++) {
+            sum_sigma += pow((normal_signal[i][j].y - baseline_avr), 2);
+        }
+        baseline_sigma = sqrt(sum_sigma/start_line);
+        //TODO obtain data of events into tree of event: baseline_sigma, baseline_avr,
+    }
+    return normal_signal;
 }
 
-
-
-
-// TODO: This must not be done like this. It would take a gazillion
-// operations to compare 2 keys of the map. Discuss the meaning of
-// that later and come up with a better solution.
-map<Events, Event> mapping_data_with_runs_events(int run, vector<Event> signal) {
-    map<Events, Event> mapped_signal;
-    for(size_t i = 0; i < signal.size(); i++) {
-        Events run_event;
-        run_event.run = run;
-        run_event.event = i;
+// TODO: Discuss intention of this function
+// Get a map, where key consists of a pair of 2 values <run> <event>, and value is an event data
+map<RunEvent_K, Event> get_mapped_events_for_run(int run, vector<Event> signal) {
+    map<RunEvent_K, Event> mapped_signal;
+    for (size_t i = 0; i < signal.size(); i++) {
+        RunEvent_K run_event = {
+            .run = run,
+            .event = (int)i,
+        };
         mapped_signal.insert({run_event, signal[i]});
     }
     return mapped_signal;
@@ -245,16 +256,16 @@ int SignalProcessing_v2() {
     Channel chan = {
         .t = CHANNEL_SLOW,
         .n = 2,
-		.threshhold = THRESH_SLOW,
-		//for fast channel for ex it would be .n = 5 .treashold = 20;
+        .threshold = THRESH_SLOW,
+        //for fast channel for ex it would be .n = 5 .treashold = 20;
     };
     vector<data_t> data = read_data_by_run(chan, RUN_START);
     vector<Event> events = split_data_to_events(chan, data);
 
-    // TODO: Discuss this thingy
-    auto ssignal = mapping_data_with_runs_events(RUN_START, events);
-    for (const auto& pair : ssignal) {
-        cout << pair.first.run << " " << pair.first.event << " " << pair.second[9999].y << endl;
+    // TODO: Discuss the reason for getting a map of <run, event> -> event_data
+    map<RunEvent_K, Event> mapped_events = get_mapped_events_for_run(RUN_START, events);
+    for (auto pair : mapped_events) {
+        cout << "[" << pair.first.run << ":" << pair.first.event << "]: " << pair.second[POINTS_PER_EVENT - 1].y << endl;
     }
     return 0;
 }
