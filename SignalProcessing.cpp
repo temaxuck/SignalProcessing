@@ -13,11 +13,11 @@ using namespace std;
 
 //командный пункт
 //----------------------------------------------------------------------------------------
-int ch_fast = 14;					// номер каннала
-int ch_slow = 1;
+int ch_fast = 5;					// номер каннала
+int ch_slow = 2;
 
-int run_start = 287;
-int run_stop = run_start + 30;
+int run_start = 149;
+int run_stop = run_start + 48;
 int event_start = 20;
 int event_stop = event_start + 20;    // выводит определненные события, сигнал
 int run_slow_vs_fast = run_start;			// выводит форму сигнала данного run, для быстрых и медленных
@@ -27,8 +27,8 @@ int evt_slow_vs_fast_stop = 80 -1;
 int threshold_slow = /*200*/ 40 /*40*/;
 int threshold_fast = 20;
 
-int one_alfa_l = 10E3;   // граница cut для одного пика alfa по total_area
-int one_alfa_r = 450E3;
+int one_alfa_l = 600E3;   // граница cut для одного пика alfa по total_area
+int one_alfa_r = 1200E3;
 int one_peak_l = -10E3; 	// граница cut для одного пика phe для калибровки
 int one_peak_r = 10000E3;
 int colib_l = 100E3;
@@ -37,14 +37,14 @@ int left_line_integrate = 32000;  /*32000;*/	// границы cut для вор
 int right_line_integrate = 32700; /*32700;*/
 int seperate_coeff = 1;				//коэффициент разделения площадей
 
-int lefts = 32160; /*32110;*/
-int rights = 32340; /*32200;*//*32400; 32250*/
-int count_peak = 2; 		//количество пиков выше которого - альфа
+int lefts = 32150; /*32110;*/
+int rights = 32360; /*32200;*//*32400; 32250*/
+int count_peak = 1; 		//количество пиков выше которого - альфа
 
 bool colibration_mode = 0;
 bool alfa = 0;
 
-string file_name = "D:\\Data\\old_setup\\2023\\230711_caen_archive\\f3";               				// путь к файлу
+string file_name = "D:\\Data\\new_setup\\250416_caen_archive\\f5";               				// путь к файлу
 string data_path = "C:\\Users\Mikheev\\Desktop\\code_root\\241112\\out_runNumb_eventNumb.txt";		// путь к записи данных в файл
 FILE* outFile = NULL;
 
@@ -467,6 +467,22 @@ void clear_vector_area()
 	COLIB.area.shrink_to_fit();
 }
 
+void out_data_file_hist(string outFile_name, TH1F* hist){
+	string adress_file = "C:\\Users\\Mikheev\\Desktop\\code_root\\";
+	string outFile_path = adress_file + outFile_name;
+	ofstream outFile(outFile_path);
+	if(outFile.is_open()){
+		cout << "file " << outFile_name << " is open" << endl;
+	}
+	for (int bin = 1; bin <= hist->GetNbinsX(); bin++){
+		double bin_сontent = hist->GetBinContent(bin);
+		double bin_сenter  = hist->GetBinCenter(bin);
+		outFile << static_cast<int>(bin_сenter) << "\t" << static_cast<int>(bin_сontent) << endl;
+	}
+	outFile.close();
+	cout << "data save in "<< outFile_name << " complete " << endl;
+}
+
 //----------------------------------------------------------------------------------------
 
 
@@ -821,7 +837,7 @@ void Find_peaks(vector <vector<Point>> norm_signal, string choose_mode, int run,
 
 				}
 
-				if( area > 0 /*&& area < 170E3*/ && max.x*sec_per_point >= lefts && max.x*sec_per_point <= rights)
+				if( area > 0 /*&& area < 380E3*/ && max.x*sec_per_point >= lefts && max.x*sec_per_point <= rights)
 				{
 					condition_is_done = 1;
 
@@ -1096,26 +1112,28 @@ void Plot_HIST(const char* canvas_name)				//функция для отобра�
 	h1_peak_area->SetFillColor(kBlue-1.5);
 	h1_peak_area->Draw();
 
-	if (!(strcasecmp(canvas_name, "SLOW_signal")))
-	{
-		ofstream outFile("C:\\Users\\Mikheev\\Desktop\\code_root\\phe_Hist.txt");
-		if (outFile.is_open())
-		{
-			cout << "file phe_Hist.txt is open" << endl;
 
-			for (int bin = 1; bin <= h1_peak_area->GetNbinsX(); bin++)
-			{
-				double binContent = h1_peak_area->GetBinContent(bin);
-				int intBinContent = static_cast<int>(binContent);
-				double binCenter = h1_peak_area->GetBinCenter(bin);
-				outFile << static_cast<int>(binCenter) << "\t" << intBinContent << endl;
 
-			}
-		}
-		outFile.close();
-		cout << "data save complete " << endl;
+	// if (!(strcasecmp(canvas_name, "SLOW_signal")))
+	// {
+		// ofstream outFile("C:\\Users\\Mikheev\\Desktop\\code_root\\phe_Hist.txt");
+		// if (outFile.is_open())
+		// {
+			// cout << "file phe_Hist.txt is open" << endl;
 
-	}
+			// for (int bin = 1; bin <= h1_peak_area->GetNbinsX(); bin++)
+			// {
+				// double binContent = h1_peak_area->GetBinContent(bin);
+				// int intBinContent = static_cast<int>(binContent);
+				// double binCenter = h1_peak_area->GetBinCenter(bin);
+				// outFile << static_cast<int>(binCenter) << "\t" << intBinContent << endl;
+
+			// }
+		// }
+		// outFile.close();
+		// cout << "data save complete " << endl;
+
+	// }
 
 
 	c1->cd(4);
@@ -1137,11 +1155,16 @@ void Plot_HIST(const char* canvas_name)				//функция для отобра�
 		}
 
 	}
-
-
-	h1_peak_time_weight->Draw("E");
+	
+	
+	h1_peak_time_weight->SetFillStyle(0);
+	h1_peak_time_weight->Draw("HIST");
 	gPad->SetLogy();
-
+	if (!(strcasecmp(canvas_name, "FAST_signal"))){
+		string tau_file = "tau_file.txt";
+		out_data_file_hist(tau_file, h1_peak_time_weight);
+	}
+	
 	c1->cd(5);
 	c1->cd(5)->SetTickx();
 	c1->cd(5)->SetTicky();
